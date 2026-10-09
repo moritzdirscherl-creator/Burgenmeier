@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ – 3D</title>
+<style>
+  :root {
+    --paper: #f3ead6; --ink: #3b2a1a; --muted: #7a6650; --panel: rgba(243, 234, 214, 0.94);
+    --line: #cdbb98; --accent: #8a4b2a; --sky-top: #c9d6dc; --sky-bottom: #efe6d2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #221c16; --ink: #efe3cc; --muted: #b9a78c; --panel: rgba(34, 28, 22, 0.92);
+      --line: #4d4033; --accent: #e09a6a; --sky-top: #2b3540; --sky-bottom: #4a4236;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #221c16; --ink: #efe3cc; --muted: #b9a78c; --panel: rgba(34, 28, 22, 0.92);
+    --line: #4d4033; --accent: #e09a6a; --sky-top: #2b3540; --sky-bottom: #4a4236;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink);
+    font: 14px/1.4 Georgia, "Times New Roman", serif; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none;
+    background: linear-gradient(var(--sky-top), var(--sky-bottom)); }
+  .panel { position: fixed; top: 12px; left: 12px; width: 300px; max-width: calc(100% - 24px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  h1 { font-size: 19px; margin: 0 0 2px; font-weight: normal; }
+  .sub { color: var(--muted); font-style: italic; margin-bottom: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  button { font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 1px solid var(--line);
+    border-radius: 5px; padding: 4px 9px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .legend { display: none; margin-top: 6px; }
+  .legend.on { display: block; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); }
+  #info { position: fixed; right: 12px; bottom: 12px; width: 320px; max-width: calc(100% - 24px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: none; }
+  #info h2 { font-size: 16px; margin: 0 0 4px; font-weight: normal; }
+  #info .k { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  #toggle { display: none; }
+  @media (max-width: 600px) {
+    .panel { top: auto; bottom: 12px; left: 16px; right: 16px; width: auto; max-width: none; }
+    .panel.collapsed .body { display: none; }
+    #toggle { display: inline-block; float: right; }
+    #info { top: 12px; bottom: auto; left: 16px; right: 16px; width: auto; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="panel" id="panel">
+  <button id="toggle" aria-label="Bedienfeld ein-/ausklappen">☰</button>
+  <h1 id="title"></h1>
+  <div class="sub" id="subtitle"></div>
+  <div class="body">
+    <div class="row" id="views">
+      <button data-view="vogelschau">Vogelschau</button>
+      <button data-view="sued">Süd</button>
+      <button data-view="west">West</button>
+      <button data-view="nord">Nord</button>
+      <button data-view="ost">Ost</button>
+      <button data-view="grundriss">Grundriss</button>
+      <button data-view="umgebung">Umgebung</button>
+    </div>
+    <div class="row">
+      <button id="befund" aria-pressed="false">Befundlage</button>
+      <button id="env" aria-pressed="true">Umgebung zeigen</button>
+      <button id="shot">Bild speichern</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="hint">Ziehen: drehen · Rechts/Shift-Ziehen: verschieben · Mausrad/Pinch: zoomen · Klick: Bauteil-Info</div>
+  </div>
+</div>
+<div id="info"></div>
+
+<script id="scene" type="application/json">__SCENE_JSON__</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  const S = JSON.parse(document.getElementById('scene').textContent);
+  const meta = S.meta;
+  document.getElementById('title').textContent = meta.name;
+  document.getElementById('subtitle').textContent =
+    (meta.date ? 'Rekonstruktionsversuch, Zustand um ' + meta.date : 'Rekonstruktionsversuch') +
+    (meta.lat != null ? ' · ' + meta.lat.toFixed(4) + '° N, ' + meta.lon.toFixed(4) + '° O' : '');
+
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+
+  const scene = new THREE.Scene();
+  const ext = S.terrain.extent;
+  scene.fog = new THREE.Fog(0xd8d6c8, ext * 0.9, ext * 2.6);
+  const camera = new THREE.PerspectiveCamera(40, 1, 1, ext * 6);
+
+  scene.add(new THREE.HemisphereLight(0xf2ecdc, 0x6b6450, 0.75));
+  const sun = new THREE.DirectionalLight(0xfff3dd, 0.95);
+  sun.position.set(-ext * 0.45, ext * 0.6, -ext * 0.5); // aus Nordwest, wie die Zeichnung
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  const sc = sun.shadow.camera;
+  sc.left = -ext / 2; sc.right = ext / 2; sc.top = ext / 2; sc.bottom = -ext / 2; sc.near = 1; sc.far = ext * 3;
+  sun.shadow.bias = -0.0008;
+  scene.add(sun);
+
+  const toGL = (x, y, z) => [x, z, -y];
+  const col = h => new THREE.Color(h).convertSRGBToLinear();
+
+  // ---- Gelände ----
+  const T = S.terrain, n = T.res + 1, dx = ext / T.res, e = ext / 2;
+  const H = (i, j) => T.h[j * n + i];
+  const tp = [], tc = [];
+  const pal = T.palette.map(col);
+  for (let j = 0; j < T.res; j++) for (let i = 0; i < T.res; i++) {
+    const x0 = -e + i * dx, x1 = x0 + dx, y0 = -e + j * dx, y1 = y0 + dx;
+    const a = toGL(x0, y0, H(i, j)), b = toGL(x1, y0, H(i + 1, j)), c = toGL(x1, y1, H(i + 1, j + 1)), d = toGL(x0, y1, H(i, j + 1));
+    const k = pal[T.cells[j * T.res + i]];
+    for (const v of [a, b, c, a, c, d]) { tp.push(...v); tc.push(k.r, k.g, k.b); }
+  }
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.Float32BufferAttribute(tp, 3));
+  tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3));
+  tg.computeVertexNormals();
+  const terrain = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 1 }));
+  terrain.receiveShadow = true;
+  scene.add(terrain);
+
+  // ---- Objekte ----
+  const pickables = [], envGroup = new THREE.Group(), burgGroup = new THREE.Group();
+  scene.add(envGroup, burgGroup);
+  const allMeshes = [];
+  for (const o of S.objects) {
+    for (const p of o.parts) {
+      const pos = [];
+      for (let k = 0; k < p.p.length; k += 3) pos.push(...toGL(p.p[k], p.p[k + 1], p.p[k + 2]));
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setIndex(p.i);
+      const water = p.r === 'water';
+      const m = new THREE.MeshStandardMaterial({ color: col(p.c), flatShading: true, roughness: water ? 0.35 : 0.95,
+        transparent: water, opacity: water ? 0.85 : 1, side: water ? THREE.DoubleSide : THREE.FrontSide });
+      const mesh = new THREE.Mesh(g, m);
+      mesh.castShadow = !water; mesh.receiveShadow = true;
+      mesh.userData = { obj: o, base: col(p.c), role: p.r };
+      (o.layer === 'burg' ? burgGroup : envGroup).add(mesh);
+      if (!water) pickables.push(mesh);
+      allMeshes.push(mesh);
+    }
+  }
+
+  // ---- Bäume (Instanzen) ----
+  function crownLaub() {
+    const g = new THREE.BufferGeometry(), p = [], r = 3.4;
+    const ring = [...Array(6)].map((_, k) => [r * Math.cos(k * Math.PI / 3), 5.0, r * Math.sin(k * Math.PI / 3)]);
+    for (let k = 0; k < 6; k++) {
+      const a = ring[k], b = ring[(k + 1) % 6];
+      p.push(...a, 0, 8.5, 0, ...b,  ...b, 0, 1.8, 0, ...a);
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.computeVertexNormals(); return g;
+  }
+  const geos = {
+    laub: crownLaub(),
+    nadel: new THREE.ConeGeometry(2.4, 8.5, 6).translate(0, 1.5 + 4.25, 0),
+    stamm: new THREE.CylinderGeometry(0.35, 0.35, 2.7, 3).translate(0, 0.85, 0),
+  };
+  const treeMeshes = {};
+  for (const kind of ['laub', 'nadel', 'stamm']) {
+    const list = kind === 'stamm' ? S.trees : S.trees.filter(t => t[3] === kind);
+    if (!list.length) continue;
+    const im = new THREE.InstancedMesh(geos[kind],
+      new THREE.MeshStandardMaterial({ color: col(S.treeColors[kind]), flatShading: true, roughness: 1 }), list.length);
+    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    list.forEach((t, k) => {
+      q.setFromAxisAngle(up, (t[0] * 13.7 + t[1] * 7.1) % 6.28);
+      mtx.compose(new THREE.Vector3(...toGL(t[0], t[1], t[2])), q, new THREE.Vector3(t[4], t[4], t[4]));
+      im.setMatrixAt(k, mtx);
+    });
+    im.castShadow = true; im.receiveShadow = true;
+    envGroup.add(im);
+    treeMeshes[kind] = im;
+  }
+
+  // ---- Kamera-Steuerung (Orbit) ----
+  const bb = S.bbox;
+  const center = new THREE.Vector3(...toGL((bb[0][0] + bb[1][0]) / 2, (bb[0][1] + bb[1][1]) / 2, (bb[0][2] + bb[1][2]) / 2));
+  const radius = Math.max(bb[1][0] - bb[0][0], bb[1][1] - bb[0][1]) / 2 + 25;
+  const st = { target: center.clone(), az: 150, el: 32, dist: radius * 3.4 };
+  function applyCam() {
+    const A = st.az * Math.PI / 180, E = st.el * Math.PI / 180;
+    const d = [Math.sin(A) * Math.cos(E), Math.cos(A) * Math.cos(E), Math.sin(E)];
+    camera.position.set(st.target.x + d[0] * st.dist, st.target.y + d[2] * st.dist, st.target.z - d[1] * st.dist);
+    if (st.el > 89) camera.up.set(-Math.sin(A), 0, Math.cos(A)); else camera.up.set(0, 1, 0);
+    camera.lookAt(st.target);
+  }
+  const VIEWS = {
+    vogelschau: { az: 150, el: 32, f: 3.4 }, sued: { az: 180, el: 9, f: 3.6 }, nord: { az: 0, el: 9, f: 3.6 },
+    ost: { az: 90, el: 9, f: 3.6 }, west: { az: 270, el: 9, f: 3.6 }, grundriss: { az: 180, el: 89.9, f: 3.6 },
+    umgebung: { az: 160, el: 28, f: 0, all: true },
+  };
+  function setView(name) {
+    const v = VIEWS[name];
+    st.az = v.az; st.el = v.el;
+    st.target.copy(center);
+    st.dist = v.all ? ext * 1.25 : radius * v.f;
+    applyCam();
+  }
+  let drag = null;
+  canvas.addEventListener('contextmenu', ev => ev.preventDefault());
+  canvas.addEventListener('pointerdown', ev => {
+    canvas.setPointerCapture(ev.pointerId);
+    drag = { x: ev.clientX, y: ev.clientY, pan: ev.button === 2 || ev.shiftKey, moved: 0, id: ev.pointerId };
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (!drag || drag.id !== ev.pointerId || pointers.size > 1) return;
+    const dxp = ev.clientX - drag.x, dyp = ev.clientY - drag.y;
+    drag.x = ev.clientX; drag.y = ev.clientY; drag.moved += Math.abs(dxp) + Math.abs(dyp);
+    if (drag.pan) {
+      const s = st.dist * 0.0014;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const fwd = new THREE.Vector3().subVectors(st.target, camera.position).setY(0).normalize();
+      st.target.addScaledVector(right, -dxp * s).addScaledVector(fwd, dyp * s);
+    } else {
+      st.az = (st.az - dxp * 0.35 + 360) % 360;
+      st.el = Math.max(2, Math.min(89.9, st.el + dyp * 0.25));
+    }
+    applyCam();
+  });
+  canvas.addEventListener('pointerup', ev => {
+    if (drag && drag.moved < 4) pick(ev);
+    drag = null;
+  });
+  canvas.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    st.dist = Math.max(15, Math.min(ext * 3, st.dist * Math.exp(ev.deltaY * 0.001)));
+    applyCam();
+  }, { passive: false });
+  const pointers = new Map(); let pinch0 = null;
+  canvas.addEventListener('pointerdown', ev => pointers.set(ev.pointerId, ev));
+  canvas.addEventListener('pointermove', ev => {
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, ev);
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (pinch0) { st.dist = Math.max(15, Math.min(ext * 3, st.dist * pinch0 / d)); applyCam(); }
+      pinch0 = d;
+    }
+  });
+  const endP = ev => { pointers.delete(ev.pointerId); if (pointers.size < 2) pinch0 = null; };
+  canvas.addEventListener('pointerup', endP); canvas.addEventListener('pointercancel', endP);
+
+  // ---- Auswahl / Info ----
+  const ray = new THREE.Raycaster(), info = document.getElementById('info');
+  const confLabel = { gesichert: 'gesichert', wahrscheinlich: 'wahrscheinlich', analogie: 'nach Analogie', annahme: 'Annahme' };
+  const srcById = Object.fromEntries((meta.sources || []).map(s => [s.id, s]));
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function pick(ev) {
+    const r = canvas.getBoundingClientRect();
+    ray.setFromCamera({ x: (ev.clientX - r.left) / r.width * 2 - 1, y: -(ev.clientY - r.top) / r.height * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(pickables.filter(m => m.visible && m.parent.visible))[0];
+    if (!hit) { info.style.display = 'none'; return; }
+    const o = hit.object.userData.obj;
+    const src = (o.sources || []).map(id => {
+      const s = srcById[id];
+      return '<li>' + esc(id) + (s ? ': ' + esc(s.title) + (s.year ? ' (' + esc(s.year) + ')' : '') : '') + '</li>';
+    }).join('');
+    info.innerHTML = '<h2>' + esc(o.name) + '</h2>' +
+      '<div><span class="k">Befund:</span> <span style="color:' + S.confColors[o.confidence] + '">■</span> ' + esc(confLabel[o.confidence]) + '</div>' +
+      (o.phase ? '<div><span class="k">Bauphase:</span> ' + esc(o.phase) + '</div>' : '') +
+      (o.note ? '<div style="margin-top:4px">' + esc(o.note) + '</div>' : '') +
+      (src ? '<div class="k" style="margin-top:6px">Quellen</div><ul style="margin:2px 0 0;padding-left:18px">' + src + '</ul>'
+           : '<div class="k" style="margin-top:6px">Keine Quelle angegeben</div>');
+    info.style.display = 'block';
+  }
+
+  // ---- Schalter ----
+  const befundBtn = document.getElementById('befund'), legend = document.getElementById('legend');
+  legend.innerHTML = Object.entries(S.confColors).map(([k, c]) =>
+    '<div><span class="sw" style="background:' + c + '"></span>' + confLabel[k] + '</div>').join('');
+  befundBtn.onclick = () => {
+    const on = befundBtn.getAttribute('aria-pressed') !== 'true';
+    befundBtn.setAttribute('aria-pressed', on);
+    legend.classList.toggle('on', on);
+    for (const m of allMeshes) {
+      const u = m.userData;
+      if (u.obj.layer !== 'burg' || u.role === 'water') continue;
+      m.material.color.copy(on ? col(S.confColors[u.obj.confidence]) : u.base);
+    }
+  };
+  const envBtn = document.getElementById('env');
+  envBtn.onclick = () => {
+    const on = envBtn.getAttribute('aria-pressed') !== 'true';
+    envBtn.setAttribute('aria-pressed', on);
+    envGroup.visible = on;
+  };
+  document.getElementById('views').addEventListener('click', ev => {
+    const v = ev.target.getAttribute && ev.target.getAttribute('data-view');
+    if (v) setView(v);
+  });
+  document.getElementById('shot').onclick = () => {
+    renderer.render(scene, camera);
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = (meta.name || 'burg').replace(/[^\wäöüÄÖÜß-]+/g, '_') + '.png';
+    a.click();
+  };
+  const panel = document.getElementById('panel');
+  document.getElementById('toggle').onclick = () => panel.classList.toggle('collapsed');
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize(); setView('vogelschau');
+  (function loop() { renderer.render(scene, camera); requestAnimationFrame(loop); })();
+  window.__burgenmeier = { setView, st };
+})();
+</script>
+</body>
+</html>

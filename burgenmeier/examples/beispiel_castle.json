@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "name": "Musterburg (fiktives Beispiel)",
+    "date": 1400,
+    "description": "Fiktive Spornburg zur Demonstration des Schemas. Alle Quellen sind erfunden und dienen nur als Platzhalter.",
+    "sources": [
+      {"id": "Q1", "type": "plan", "title": "Grundrissaufnahme der Ruine (fiktiv)", "year": 1905, "note": "Maßstab 1:500, Nordpfeil vorhanden"},
+      {"id": "Q2", "type": "illustration", "title": "Vedute von Süden (fiktiv)", "year": 1620, "note": "zeigt Bergfried mit Spitzhelm und Palas mit Satteldach"},
+      {"id": "Q3", "type": "text", "title": "Urbar der Herrschaft (fiktiv)", "year": 1388, "note": "nennt Kapelle, Torhaus, Brücke und das Dorf unter der Burg mit Mühle"},
+      {"id": "A1", "type": "analogy", "title": "Typologie staufischer Spornburgen", "note": "Bergfried an der Angriffsseite, Halsgraben"},
+      {"id": "R1", "type": "research", "title": "Geländerecherche (Höhenmodell, Flussverlauf)", "note": "heutiger Zustand, mittelalterlich rückprojiziert"}
+    ]
+  },
+  "site": {
+    "lat": 49.5,
+    "lon": 11.0,
+    "elevation": 420,
+    "extent": 800,
+    "resolution": 80,
+    "terrain": {"type": "spur", "relief": 70, "direction": 90, "roughness": 0.35, "seed": 3},
+    "plateau": {
+      "polygon": [[-52, -30], [30, -36], [64, -15], [68, 10], [36, 31], [-52, 28]],
+      "evidence": {"sources": ["Q1"], "confidence": "gesichert"}
+    },
+    "environment": {
+      "rivers": [
+        {"name": "Bach", "path": [[-400, -200], [-200, -238], [0, -232], [200, -258], [400, -240]], "width": 16, "depth": 2,
+         "evidence": {"sources": ["R1"], "confidence": "wahrscheinlich", "note": "Verlauf vor der Begradigung"}}
+      ],
+      "roads": [
+        {"name": "Burgweg", "path": [[-76, 10], [-130, 22], [-200, -20], [-190, -110], [-100, -165], [20, -185], [140, -192]], "width": 4,
+         "evidence": {"sources": ["R1"], "confidence": "annahme"}}
+      ],
+      "settlements": [
+        {"name": "Dorf unter der Burg", "polygon": [[10, -168], [140, -165], [160, -212], [20, -216]], "houses": 16, "church": true,
+         "evidence": {"sources": ["Q3"], "confidence": "wahrscheinlich", "note": "Lage durch Urbar belegt, Bebauung rekonstruiert"}}
+      ],
+      "fields": [
+        {"kind": "acker", "polygon": [[170, -150], [395, -140], [395, -205], [170, -212]], "evidence": {"confidence": "annahme"}},
+        {"kind": "acker", "polygon": [[-395, -125], [-235, -115], [-215, -205], [-395, -195]], "evidence": {"confidence": "annahme"}},
+        {"kind": "acker", "polygon": [[140, -80], [300, -55], [330, -140], [150, -150]], "evidence": {"confidence": "annahme"}},
+        {"kind": "weide", "polygon": [[-400, -205], [400, -212], [400, -300], [-400, -300]], "evidence": {"confidence": "annahme"}}
+      ],
+      "forest": [
+        {"kind": "misch", "density": 0.55, "polygon": [[-400, 70], [400, 95], [400, 400], [-400, 400]], "evidence": {"confidence": "annahme"}},
+        {"kind": "laub", "density": 0.5, "polygon": [[-400, -110], [-245, -100], [-160, 55], [-400, 60]], "evidence": {"confidence": "annahme"}},
+        {"kind": "laub", "density": 0.45, "polygon": [[110, -45], [300, -30], [400, 85], [130, 60]], "evidence": {"confidence": "annahme"}}
+      ]
+    }
+  },
+  "elements": [
+    {"id": "halsgraben", "type": "ditch", "name": "Halsgraben", "path": [[-63, -90], [-62, 0], [-63, 90]], "width": 16, "depth": 8,
+     "evidence": {"sources": ["Q1", "A1"], "confidence": "gesichert", "note": "im Gelände deutlich erhalten"}},
+    {"id": "ringmauer", "type": "wall", "name": "Ringmauer", "closed": true, "thickness": 2.2, "height": 9,
+     "path": [[-48, -26], [28, -32], [60, -13], [64, 8], [34, 27], [-48, 24]],
+     "phase": "um 1200", "evidence": {"sources": ["Q1"], "confidence": "gesichert", "note": "Fundamente im Plan, Höhe nach Vedute"}},
+    {"id": "bergfried", "type": "tower", "name": "Bergfried", "shape": "square", "center": [-34, -6], "size": 11, "height": 28,
+     "roof": "pyramid", "roof_height": 9, "phase": "um 1200",
+     "evidence": {"sources": ["Q1", "Q2"], "confidence": "wahrscheinlich", "note": "Grundriss gesichert, Helm nach Vedute 1620"}},
+    {"id": "torhaus", "type": "gate", "name": "Torhaus", "center": [-48, 11], "size": [10, 8], "orientation": 90, "height": 13, "roof": "hip",
+     "evidence": {"sources": ["Q3"], "confidence": "analogie", "note": "im Urbar genannt, Gestalt nach Analogie"}},
+    {"id": "bruecke", "type": "bridge", "name": "Brücke über den Halsgraben", "path": [[-76, 11], [-53, 11]], "width": 3.5,
+     "evidence": {"sources": ["Q3"], "confidence": "wahrscheinlich"}},
+    {"id": "palas", "type": "building", "name": "Palas", "polygon": [[-12, -29], [24, -32], [25, -19], [-11, -16]], "height": 13,
+     "roof": "gable", "material": "stone", "roof_material": "tile", "phase": "14. Jh.",
+     "evidence": {"sources": ["Q1", "Q2"], "confidence": "wahrscheinlich"}},
+    {"id": "kapelle", "type": "building", "name": "Kapelle", "center": [46, 2], "size": [13, 7.5], "orientation": 70, "height": 8,
+     "roof": "gable", "roof_material": "slate",
+     "evidence": {"sources": ["Q3"], "confidence": "analogie", "note": "Lage vermutet"}},
+    {"id": "wirtschaft", "type": "building", "name": "Wirtschaftsgebäude", "polygon": [[-10, 13], [25, 16], [25, 24], [-10, 21]], "height": 5.5,
+     "roof": "shed", "material": "timber", "roof_material": "shingle",
+     "evidence": {"confidence": "annahme"}},
+    {"id": "ostturm", "type": "tower", "name": "Schalenturm Ost", "shape": "round", "center": [63, -2], "radius": 4.5, "height": 15,
+     "roof": "cone", "roof_material": "slate",
+     "evidence": {"sources": ["Q1"], "confidence": "wahrscheinlich"}}
+  ]
+}
