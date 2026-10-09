@@ -1,6 +1,15 @@
 # Burgenmeier
 
-Ein **Claude-Skill**, der aus Ruinenplänen, alten Illustrationen und Primärquellentexten ein plausibles
+Zwei **Claude-Skills**, die zusammen oder einzeln funktionieren:
+
+- **`burgen-recherche`**: Aus einem Burgnamen entsteht ein geprüftes Quellendossier: Lage, Baugeschichte,
+  Pläne, historische Ansichten, Schriftquellen und Karten, mit Downloads, Lizenzen und Quellenbewertung.
+- **`burgenmeier`**: Aus dem Material entstehen 3D-Modell, Zeichnungen und Befundbericht.
+
+Du kannst eigenes Material hochladen, Claude alles recherchieren lassen oder beides mischen.
+Eigenes Material hat Vorrang, die Recherche füllt die Lücken.
+
+Der Skill `burgenmeier` ist ein **Claude-Skill**, der aus Ruinenplänen, alten Illustrationen und Primärquellentexten ein plausibles
 **Low-Poly-3D-Modell** einer mittelalterlichen Burg samt ihrer damaligen Umgebung erzeugt. Alternativ
 entsteht eine **Zeichnung aus gewählter Perspektive**. Standort, Gelände und historische Umgebung
 recherchiert Claude selbst. Jedes Bauteil trägt seine Befundstufe (gesichert / wahrscheinlich / Analogie /
@@ -26,17 +35,25 @@ Pläne · Bilder · Texte ──► Claude (liest Bilder, wertet Quellen aus, re
    GLB/OBJ + Viewer   SVG/PNG-Zeichnung  Quellenbericht   Kontrolle auf dem Plan
 ```
 
+Mit `burgen-recherche` kommt davor noch ein Schritt:
+
+```
+„Burg Falkenstein im Harz“ ──► wikidata.py · Websuche · commons.py ──► quellen.json + dossier.md + quellen/*.jpg
+                                                                       └─► castle.json-Gerüst ──► burgenmeier
+```
+
 Claude übernimmt die Interpretation, die Skripte die Geometrie. Dadurch sind Modell und Zeichnungen
 reproduzierbar und konsistent. Ändert man eine Zahl in `castle.json`, ändern sich alle Ausgaben gleich.
 
 ## Installation in claude.ai (Pro, Max, Team, Enterprise)
 
-1. ZIP bauen: `./build_skill.sh` → `dist/burgenmeier.zip` (oder den Ordner `burgenmeier/` selbst zippen).
+1. ZIPs bauen: `./build_skill.sh` → `dist/burgenmeier.zip` und `dist/burgen-recherche.zip`.
 2. In claude.ai unter **Einstellungen → Funktionen** die **Codeausführung / Dateierstellung** aktivieren.
-3. Dort unter **Skills** die ZIP-Datei hochladen und den Skill einschalten.
-4. *(Optional, empfohlen)* Für echte Höhendaten und OpenStreetMap braucht die Sandbox Netzzugriff. In den
-   Einstellungen zur Codeausführung die Domains `s3.amazonaws.com`, `overpass-api.de`, `www.wikidata.org`
-   und `nominatim.openstreetmap.org` freigeben. Ohne Netz funktioniert alles weiterhin, das Gelände wird
+3. Dort unter **Skills** beide ZIP-Dateien hochladen und einschalten. Jeder Skill funktioniert auch allein.
+4. *(Optional, empfohlen)* Für echte Höhendaten, OpenStreetMap und Wikimedia braucht die Sandbox
+   Netzzugriff. In den Einstellungen zur Codeausführung diese Domains freigeben: `s3.amazonaws.com`,
+   `overpass-api.de`, `www.wikidata.org`, `nominatim.openstreetmap.org`, `commons.wikimedia.org` und
+   `upload.wikimedia.org`. Ohne Netz funktioniert alles weiterhin, das Gelände wird
    dann aus der Recherche prozedural erzeugt. Claudes eigene **Websuche** sollte ebenfalls an sein.
 5. *(Optional)* Ein **Projekt** „Burgenmeier“ anlegen und dort Pläne, Quellen und Fotos als Projektwissen
    ablegen. Dann starten alle Chats mit diesem Material.
@@ -58,6 +75,14 @@ Claude geht dann so vor:
 4. Zeichnung, GLB, Viewer und Quellenbericht erzeugen und das Ergebnis selbst kontrollieren.
 5. Erklären, was belegt ist und was nicht, und welches Material die Unsicherheit am stärksten senken würde.
 
+Oder ganz ohne eigenes Material:
+
+> Recherchiere alles zu Burg Reußenstein und zeichne sie als Vogelschau im Zustand um 1400.
+
+Dann sucht Claude zuerst die Quellen mit `burgen-recherche`. Es zeigt dir das Dossier mit Funden und
+Lücken und fragt bei großen Lücken nach, bevor es modelliert. Mit dem Dossier kannst du auch selbst
+weitersuchen, etwa im Archiv.
+
 Danach kann man im Chat nachsteuern, z. B. „Bergfried mit Zinnenkranz statt Helm“, „Ansicht wie auf der
 Vedute von 1630“ oder „nur die Burg, ohne Umgebung, als Grundriss“.
 
@@ -76,6 +101,13 @@ python $S/geo.py geocode "Burg Eltz"               # Koordinaten
 python $S/geo.py terrain meine_burg.json           # echtes Höhenmodell
 python $S/geo.py osm meine_burg.json               # heutige Umgebung als Rohmaterial
 python $S/plan.py grid plan.png                    # Raster zum Ablesen von Plankoordinaten
+
+R=burgen-recherche/scripts
+python $R/dossier.py init "Burg X" -o quellen.json
+python $R/wikidata.py "Burg X" --dossier quellen.json
+python $R/commons.py search "Burg X Grundriss" --download quellen/ --dossier quellen.json
+python $R/dossier.py check quellen.json && python $R/dossier.py render quellen.json -o dossier.md
+python $R/dossier.py castle quellen.json -o castle.json    # Gerüst für burgenmeier
 ```
 
 Tests: `pip install pytest && python -m pytest tests`
@@ -83,17 +115,23 @@ Tests: `pip install pytest && python -m pytest tests`
 ## Aufbau
 
 ```
-burgenmeier/              ← der Skill (wird gezippt)
+burgen-recherche/         ← Skill 1: Quellenrecherche
+  SKILL.md, reference/quellenorte.md
+  scripts/                wikidata, commons, dossier
+burgenmeier/              ← Skill 2: Rekonstruktion
   SKILL.md                Arbeitsanleitung für Claude
   reference/              Schema, Typologie & Richtmaße, Umgebung, Quellenkritik
   scripts/                castle_lib (Kern), build_model, draw_view, geo, plan, validate, report
   templates/viewer.html   Three.js-Viewer (Szene wird eingebettet)
   examples/               fiktive Beispielburg
 tests/                    pytest
-build_skill.sh            erzeugt dist/burgenmeier.zip
+build_skill.sh            erzeugt dist/burgenmeier.zip und dist/burgen-recherche.zip
 ```
 
 ## Grenzen
+
+- Die Recherche findet nur, was digital zugänglich ist. Urkundenbücher ohne Digitalisat, Archivbestände und
+  moderne Bauforschung (urheberrechtlich geschützt) werden nur nachgewiesen; das Dossier sagt, wo sie liegen.
 
 - Die Modelle sind **plausibel, nicht wahr**. Die Qualität hängt am Quellenmaterial; die Befundfärbung
   zeigt das ehrlich an.

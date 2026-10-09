@@ -1,6 +1,6 @@
 ---
 name: burgenmeier
-description: Rekonstruiert mittelalterliche Burgen samt ihrer damaligen Umgebung als plausibles Low-Poly-3D-Modell (GLB/OBJ + interaktiver Viewer) oder als Zeichnung aus wählbarer Perspektive (Vogelschau, Ansichten, Grundriss). Eingaben sind Ruinenpläne, alte Illustrationen/Veduten und Textbeschreibungen aus Primärquellen; Standort, Gelände und historische Umgebung werden recherchiert. Verwenden, sobald jemand eine Burg, Ruine, Festung, Wasserburg, Motte oder einen Adelssitz rekonstruieren, visualisieren, als 3D-Modell oder Zeichnung darstellen will – auch wenn nur ein Burgname genannt wird.
+description: Rekonstruiert mittelalterliche Burgen samt ihrer damaligen Umgebung als plausibles Low-Poly-3D-Modell (GLB/OBJ + interaktiver Viewer) oder als Zeichnung aus wählbarer Perspektive (Vogelschau, Ansichten, Grundriss). Eingaben sind Ruinenpläne, alte Illustrationen/Veduten und Textbeschreibungen aus Primärquellen – vom Nutzer hochgeladen oder (mit dem Skill burgen-recherche bzw. per Websuche) selbst beschafft; Standort, Gelände und historische Umgebung werden recherchiert. Verwenden, sobald jemand eine Burg, Ruine, Festung, Wasserburg, Motte oder einen Adelssitz rekonstruieren, visualisieren, als 3D-Modell oder Zeichnung darstellen will – auch wenn nur ein Burgname genannt wird.
 ---
 
 # Burgenmeier
@@ -15,6 +15,19 @@ Arbeitsordner (z. B. `/tmp/burg/`). Lege Ergebnisse dort ab, wo die Umgebung sie
 (auf claude.ai: `/mnt/user-data/outputs/`). Benötigt: Python 3 mit `numpy` und `Pillow`.
 
 ## Ablauf
+
+### 0. Genug Material? Sonst zuerst recherchieren
+Prüfe, was vorliegt. Nennt der Nutzer nur einen Namen oder fehlt ein Plan, eine Ansicht oder eine
+Schriftquelle, beschaffe zuerst Quellen:
+- Ist der Skill **burgen-recherche** verfügbar, folge seinem Ablauf vollständig. Er liefert `quellen.json`,
+  `dossier.md`, heruntergeladene Pläne und Bilder sowie ein `castle.json`-Gerüst, mit dem du hier bei
+  Schritt 1 weitermachst.
+- Sonst recherchierst du selbst per Websuche: Wikipedia und EBIDAT mit Literaturangaben, Grundriss
+  (Kunstdenkmäler-Inventar, Piper, Commons), historische Ansichten (Merian u. a.), Schriftquellen mit
+  Nennungen von Bauteilen. Nimm nur auf, was du tatsächlich gefunden hast, mit URL.
+- Bringt der Nutzer eigenes Material mit, hat es Vorrang. Die Recherche ergänzt es nur.
+Sag dem Nutzer kurz, was gefunden wurde und was fehlt, bevor du modellierst. Bei großen Lücken
+(kein Plan, keine Ansicht) frag, ob er trotzdem eine Analogie-Rekonstruktion möchte.
 
 ### 1. Material sichten (vor jeder Rechnung)
 Lege eine Quellenliste an. Jede Quelle bekommt eine id (`Q1`, `Q2` …), einen Typ, ein Jahr und eine Notiz.
