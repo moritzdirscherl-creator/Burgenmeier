@@ -1,10 +1,13 @@
 # Burgenmeier
 
-Zwei **Claude-Skills**, die zusammen oder einzeln funktionieren:
+Drei **Claude-Skills**, die zusammen oder einzeln funktionieren:
 
 - **`burgen-recherche`**: Aus einem Burgnamen entsteht ein geprüftes Quellendossier: Lage, Baugeschichte,
   Pläne, historische Ansichten, Schriftquellen und Karten, mit Downloads, Lizenzen und Quellenbewertung.
 - **`burgenmeier`**: Aus dem Material entstehen 3D-Modell, Zeichnungen und Befundbericht.
+- **`burgenmaler`**: Aus dem Burgenmeister-Modell wird ein verschönertes Schaubild mit Texturen, Licht,
+  Himmel und Bewuchs, dazu hochaufgelöste Bilder aus beliebiger Blickrichtung. Die Geometrie bleibt
+  unverändert, der Schalter „Befundlage“ auch.
 
 Du kannst eigenes Material hochladen, Claude alles recherchieren lassen oder beides mischen.
 Eigenes Material hat Vorrang, die Recherche füllt die Lücken.
@@ -18,6 +21,10 @@ Annahme) und seine Quellen.
 | Vogelschau (Federzeichnung) | Grundriss nach Befundlage | Interaktiver 3D-Viewer |
 |---|---|---|
 | ![Vogelschau](docs/vogelschau.jpg) | ![Grundriss](docs/grundriss_befund.jpg) | ![Viewer](docs/viewer.jpg) |
+
+| Schaubild (Burgenmaler), Blick wie eine Vedute | Schaubild im Abendlicht |
+|---|---|
+| ![Schaubild Vedute](docs/schaubild_vedute.jpg) | ![Schaubild Abend](docs/schaubild_abend.jpg) |
 
 *Abgebildet ist die fiktive „Musterburg“ aus `burgenmeier/examples/`.*
 
@@ -47,9 +54,9 @@ reproduzierbar und konsistent. Ändert man eine Zahl in `castle.json`, ändern s
 
 ## Installation in claude.ai (Pro, Max, Team, Enterprise)
 
-1. ZIPs bauen: `./build_skill.sh` → `dist/burgenmeier.zip` und `dist/burgen-recherche.zip`.
+1. ZIPs bauen: `./build_skill.sh` → `dist/burgenmeier.zip`, `dist/burgen-recherche.zip` und `dist/burgenmaler.zip`.
 2. In claude.ai unter **Einstellungen → Funktionen** die **Codeausführung / Dateierstellung** aktivieren.
-3. Dort unter **Skills** beide ZIP-Dateien hochladen und einschalten. Jeder Skill funktioniert auch allein.
+3. Dort unter **Skills** die ZIP-Dateien hochladen und einschalten. Recherche und Burgenmeister funktionieren auch allein, der Burgenmaler braucht den Burgenmeister.
 4. *(Optional, empfohlen)* Für echte Höhendaten, OpenStreetMap und Wikimedia braucht die Sandbox
    Netzzugriff. In den Einstellungen zur Codeausführung diese Domains freigeben: `s3.amazonaws.com`,
    `overpass-api.de`, `www.wikidata.org`, `nominatim.openstreetmap.org`, `commons.wikimedia.org` und
@@ -108,6 +115,11 @@ python $R/wikidata.py "Burg X" --dossier quellen.json
 python $R/commons.py search "Burg X Grundriss" --download quellen/ --dossier quellen.json
 python $R/dossier.py check quellen.json && python $R/dossier.py render quellen.json -o dossier.md
 python $R/dossier.py castle quellen.json -o castle.json    # Gerüst für burgenmeier
+
+M=burgenmaler/scripts
+python $M/paint.py burgenmeier/examples/beispiel_castle.json -o burg_schaubild.html
+node   $M/render.mjs burg_schaubild.html --out bilder/ --views vogelschau,umgebung \
+       --cam "vedute:az=215,el=12,dist=330,fov=32" --licht abend      # braucht Playwright + Chromium
 ```
 
 Tests: `pip install pytest && python -m pytest tests`
@@ -124,8 +136,12 @@ burgenmeier/              ← Skill 2: Rekonstruktion
   scripts/                castle_lib (Kern), build_model, draw_view, geo, plan, validate, report
   templates/viewer.html   Three.js-Viewer (Szene wird eingebettet)
   examples/               fiktive Beispielburg
+burgenmaler/              ← Skill 3: Schaubild
+  SKILL.md
+  scripts/                paint.py (castle.json → Schaubild-HTML), render.mjs (Bilder per Chromium)
+  templates/schaubild.html  Three.js-Schaubild mit prozeduralen Texturen
 tests/                    pytest
-build_skill.sh            erzeugt dist/burgenmeier.zip und dist/burgen-recherche.zip
+build_skill.sh            erzeugt dist/*.zip für alle drei Skills
 ```
 
 ## Grenzen

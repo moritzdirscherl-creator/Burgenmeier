@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 mkdir -p dist
 python3 - <<'PY'
 import os, zipfile
-for skill in ("burgenmeier", "burgen-recherche"):
+for skill in ("burgenmeier", "burgen-recherche", "burgenmaler"):
     out = f"dist/{skill}.zip"
     if os.path.exists(out):
         os.remove(out)
