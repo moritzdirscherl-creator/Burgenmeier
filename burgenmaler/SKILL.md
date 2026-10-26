@@ -53,13 +53,14 @@ Playwright/Chromium.
 
 | Bereich | Darstellung |
 |---|---|
-| Gelände | bikubisch verfeinert und weich schattiert, Fels an steilen Hängen, Wiese mit Farbspiel, verrauschte Nutzungsgrenzen, Mulden dunkler; der Ausschnitt geht in eine ferne Hügellandschaft über |
+| Gelände | bikubisch verfeinert, weich schattiert und mit Eigenschatten der Hänge; Mulden dunkler; der Ausschnitt geht in eine ferne Hügellandschaft über |
+| Boden | eine Bodenkarte (≈ 0,2 m je Pixel), direkt aus den Vektoren der `castle.json` gemalt: geglättete Wege mit Bankett, Ackerstreifen nach `strip_width` mit Furchen und Rainen, Waldboden, Hofstellen, Burghof, Gräben, Flussufer, Fels an Steilhängen |
 | Mauern | im Browser gemaltes Bruchstein-, Ziegel-, Putz-, Fachwerk- und Holzmuster nach `material`, Relief, dunklerer Mauerfuß, Rundtürme geglättet |
 | Dächer | Biberschwanz, Schiefer, Schindel, Stroh, Blei nach `roof_material` |
 | Wasser | spiegelnd mit bewegten Wellen |
 | Bäume | mehrere Kronenformen je Art, gestufte Nadelbäume, Farbstreuung je Baum; Wald läuft über den Rand hinaus aus |
 | Licht | Himmel mit Sonne, weiche Schatten, Himmelslicht, Luftperspektive, Filmkurve (ACES) |
 
-Grenzen: keine Fenster, Erker oder Wehrgänge, solange `castle.json` sie nicht enthält; Felder bleiben
-an das Zellraster des Geländes gebunden. Fotorealismus (Blender, Pfadverfolgung) ist nicht Teil
+Grenzen: keine Fenster, Erker oder Wehrgänge, solange `castle.json` sie nicht enthält. Wege werden
+aufs Gelände gemalt, nicht eingeschnitten. Fotorealismus (Blender, Pfadverfolgung) ist nicht Teil
 dieses Skills.

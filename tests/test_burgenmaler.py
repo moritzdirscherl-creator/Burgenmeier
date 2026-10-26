@@ -26,6 +26,9 @@ def test_schaubild_html(tmp_path):
     parts = [p for o in data["objects"] for p in o["parts"]]
     assert {"stone", "slate", "tile"} <= {p["m"] for p in parts}
     assert all(p["r"] != "roof" or p["m"] for p in parts if p["c"].startswith("#"))
+    vec = data["vec"]
+    assert vec["env"]["roads"] and vec["env"]["fields"] and vec["plateau"]
+    assert vec["ditches"][0]["width"] > 0
 
 
 def test_three_inline(tmp_path):

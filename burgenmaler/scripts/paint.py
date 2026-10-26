@@ -49,20 +49,34 @@ def load_modules(path):
     return castle_lib, build_model
 
 
-def payload(scene, castle_lib, build_model):
-    """Viewer-Daten des Burgenmeisters plus Werkstoffnamen je Teil (für die Texturwahl)."""
+def vector_data(castle):
+    """Umgebung, Burghof und Gräben als Vektoren, damit der Boden scharf gemalt werden kann."""
+    site = (castle or {}).get("site") or {}
+    env = site.get("environment") or {}
+    keep = ("fields", "forest", "settlements", "roads", "rivers", "water")
+    ditches = [{"path": [p[:2] for p in el["path"]], "width": float(el.get("width", 12)),
+                "closed": bool(el.get("closed")), "water": bool(el.get("water"))}
+               for el in (castle or {}).get("elements", []) if el.get("type") == "ditch" and el.get("path")]
+    plateau = (site.get("plateau") or {}).get("polygon")
+    return {"env": {k: env[k] for k in keep if env.get(k)}, "plateau": plateau, "ditches": ditches}
+
+
+def payload(scene, castle_lib, build_model, castle=None):
+    """Viewer-Daten des Burgenmeisters plus Werkstoffnamen je Teil (für die Texturwahl)
+    und die Vektordaten der Umgebung (für die Bodenkarte)."""
     data = build_model.viewer_payload(scene)
     by_color = {v.lower(): k for k, v in castle_lib.MATERIALS.items()}
     for obj in data["objects"]:
         for part in obj["parts"]:
             part["m"] = by_color.get(part["c"].lower())
+    data["vec"] = vector_data(castle)
     return data
 
 
-def write_schaubild(scene, path, castle_lib, build_model, three_js=None, template=TEMPLATE):
+def write_schaubild(scene, path, castle_lib, build_model, three_js=None, template=TEMPLATE, castle=None):
     with open(template, encoding="utf-8") as f:
         html = f.read()
-    data = json.dumps(payload(scene, castle_lib, build_model), ensure_ascii=False, separators=(",", ":"))
+    data = json.dumps(payload(scene, castle_lib, build_model, castle), ensure_ascii=False, separators=(",", ":"))
     data = data.replace("</", "<\\/")
     if three_js:
         with open(three_js, encoding="utf-8") as f:
@@ -85,9 +99,10 @@ def main(argv=None):
     ap.add_argument("--burgenmeier", help="Pfad zum Burgenmeister-Skill oder dessen scripts/")
     a = ap.parse_args(argv)
     cl, bm = load_modules(find_burgenmeier(a.burgenmeier))
-    scene = cl.build_scene(cl.load_castle(a.castle))
+    castle = cl.load_castle(a.castle)
+    scene = cl.build_scene(castle)
     out = a.out or os.path.splitext(a.castle)[0] + "_schaubild.html"
-    print("Schaubild:", write_schaubild(scene, out, cl, bm, a.three))
+    print("Schaubild:", write_schaubild(scene, out, cl, bm, a.three, castle=castle))
 
 
 if __name__ == "__main__":

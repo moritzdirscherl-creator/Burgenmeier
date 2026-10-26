@@ -293,14 +293,6 @@ __THREE_SCRIPT__
       g.fillStyle = '#c8ccd0'; g.fillRect(0, 0, N, N); speckle(g, N, 30 * s, 0.08, 18);
       g.fillStyle = 'rgba(40,45,50,0.35)'; for (let x = 0; x < N; x += N / 4) g.fillRect(x, 0, 3 * s, N);
     });
-    TEX.ground = canvasTex(N, (g) => {
-      g.fillStyle = '#e4e4e4'; g.fillRect(0, 0, N, N); speckle(g, N, 14 * s, 0.22, 19);
-      const R = rng(81);
-      for (let k = 0; k < 2500 * s * s; k++) {
-        g.fillStyle = R() < 0.5 ? 'rgba(255,255,230,0.18)' : 'rgba(30,40,10,0.14)';
-        g.fillRect(R() * N, R() * N, 2 * s, 2 * s + R() * 5 * s);
-      }
-    });
     // Wellen-Normalmap fürs Wasser
     TEX.waves = canvasTex(256, (g, N) => {
       const img = g.createImageData(N, N), d = img.data;
@@ -347,35 +339,198 @@ __THREE_SCRIPT__
   const names = T.names, pal = T.palette.map(col);
   const kindIdx = Object.fromEntries(names.map((k, i) => [k, i]));
   const cellAt = (ci, cj) => T.cells[Math.max(0, Math.min(T.res - 1, cj)) * T.res + Math.max(0, Math.min(T.res - 1, ci))];
-  const GRASS = new Set(['wiese', 'weide', 'wald', 'garten', 'graben', 'weinberg'].map(k => kindIdx[k]));
-  const FIELD = new Set(['acker1', 'acker2', 'acker3'].map(k => kindIdx[k]));
-  const ROCK = col('#8f897d'), DRY = col('#b9b06e'), LUSH = col('#5f7d3e');
-  const WATERK = kindIdx.wasser;
+  const ROCK = '#8f897d';
 
-  function terrainColor(x, y, gx, gy, curv, out) {
-    // Nutzung: nächste Zelle mit verrauschter Grenze, gemischt mit weichem Übergang
-    const jx = (fbm(x * 0.045, y * 0.045, 3) - 0.5) * 1.1, jy = (fbm(x * 0.045 + 31, y * 0.045 - 7, 3) - 0.5) * 1.1;
-    const fx = (x + e) / dx + jx, fy = (y + e) / dx + jy;
-    const k = cellAt(Math.floor(fx), Math.floor(fy));
-    out.copy(pal[k]);
-    const bx = (x + e) / dx - 0.5, by = (y + e) / dx - 0.5, i0 = Math.floor(bx), j0 = Math.floor(by), tx = bx - i0, ty = by - j0;
-    const c00 = pal[cellAt(i0, j0)], c10 = pal[cellAt(i0 + 1, j0)], c01 = pal[cellAt(i0, j0 + 1)], c11 = pal[cellAt(i0 + 1, j0 + 1)];
-    const blur = new THREE.Color(
-      (c00.r * (1 - tx) + c10.r * tx) * (1 - ty) + (c01.r * (1 - tx) + c11.r * tx) * ty,
-      (c00.g * (1 - tx) + c10.g * tx) * (1 - ty) + (c01.g * (1 - tx) + c11.g * tx) * ty,
-      (c00.b * (1 - tx) + c10.b * tx) * (1 - ty) + (c01.b * (1 - tx) + c11.b * tx) * ty);
-    out.lerp(blur, FIELD.has(k) ? 0.15 : 0.4);
-    const big = fbm(x * 0.012, y * 0.012, 4), mid = fbm(x * 0.06 + 11, y * 0.06, 3);
-    if (GRASS.has(k)) {
-      out.lerp(big > 0.5 ? DRY : LUSH, Math.abs(big - 0.5) * 0.5);
-    } else if (FIELD.has(k)) {
-      // Furchen quer zur Streifenrichtung andeuten
-      out.multiplyScalar(0.94 + 0.08 * Math.sin((x * 0.7 + y * 0.5) + mid * 3));
+  // ---------------------------------------------------------------------------
+  // Bodenkarte: Nutzung aus den Vektordaten der castle.json gemalt (≈ 0,2 m je Pixel)
+  // statt aus dem 10-m-Zellraster – Wege, Feldstreifen und Ränder bleiben scharf.
+  // ---------------------------------------------------------------------------
+  const V = S.vec || { env: {}, plateau: null, ditches: [] };
+  const GS = Math.min(small ? 2048 : 4096, maxTex), pxm = GS / ext;   // Pixel je Meter
+  const PX = (x, y) => [(x + e) * pxm, (e - y) * pxm];
+  function chaikin(pts, closed, it) {
+    let p = pts.map(q => [q[0], q[1]]);
+    for (let k = 0; k < (it || 3); k++) {
+      const out = closed ? [] : [p[0]];
+      const m = closed ? p.length : p.length - 1;
+      for (let i = 0; i < m; i++) {
+        const a = p[i], b = p[(i + 1) % p.length];
+        out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+      }
+      if (!closed) out.push(p[p.length - 1]);
+      p = out;
     }
-    const slope = Math.hypot(gx, gy);
-    if (k !== WATERK) out.lerp(ROCK, smooth(0.55, 1.05, slope + (mid - 0.5) * 0.4) * 0.9);
-    out.multiplyScalar((0.9 + 0.2 * mid) * Math.max(0.78, Math.min(1.1, 1 + curv)));
-    return out;
+    return p;
+  }
+  function tracePath(g, pts, closed) {
+    g.beginPath();
+    pts.forEach((q, i) => { const [u, v] = PX(q[0], q[1]); i ? g.lineTo(u, v) : g.moveTo(u, v); });
+    if (closed) g.closePath();
+  }
+  function lowNoiseCanvas(N, f, seed) {
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    const g = c.getContext('2d'), img = g.createImageData(N, N), d = img.data;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const x = -e + (i + 0.5) / N * ext, y = e - (j + 0.5) / N * ext, k = (j * N + i) * 4;
+      const v = f(x, y, seed);
+      d[k] = v[0]; d[k + 1] = v[1]; d[k + 2] = v[2]; d[k + 3] = v[3];
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  const mainAxis = poly => {
+    let best = -1, ax = [1, 0];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (L > best) { best = L; ax = [(q[0] - p[0]) / L, (q[1] - p[1]) / L]; }
+    });
+    return ax;
+  };
+  const blurOK = (() => { const g = document.createElement('canvas').getContext('2d'); g.filter = 'blur(2px)'; return g.filter === 'blur(2px)'; })();
+  function soft(g, px, fn) { if (blurOK) g.filter = 'blur(' + Math.max(0.5, px) + 'px)'; fn(); g.filter = 'none'; }
+
+  const CROPS = ['#c9b46a', '#d6c27a', '#a9a65a', '#9a8a5c', '#b8a05e', '#8f9a52', '#c2a86c'];
+  function paintGround(slopeMask) {
+    const c = document.createElement('canvas'); c.width = c.height = GS;
+    const g = c.getContext('2d');
+    // 1. Grundfarbe aus dem Zellraster (Hof, Graben, Fels …) – stark weichgezeichnet;
+    //    Nutzungen mit Vektordaten werden darüber neu gemalt
+    const neutral = { weg: 'wiese', acker1: 'wiese', acker2: 'wiese', acker3: 'wiese', siedlung: 'wiese', wasser: 'graben' };
+    const cellC = names.map(k => new THREE.Color(T.palette[names.indexOf(neutral[k] || k)]));
+    const base = document.createElement('canvas'); base.width = base.height = T.res;
+    const bg = base.getContext('2d'), bi = bg.createImageData(T.res, T.res);
+    for (let j = 0; j < T.res; j++) for (let i = 0; i < T.res; i++) {
+      const cc = cellC[T.cells[j * T.res + i]], k = ((T.res - 1 - j) * T.res + i) * 4;
+      bi.data[k] = cc.r * 255; bi.data[k + 1] = cc.g * 255; bi.data[k + 2] = cc.b * 255; bi.data[k + 3] = 255;
+    }
+    bg.putImageData(bi, 0, 0);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    soft(g, dx * pxm * 0.6, () => g.drawImage(base, 0, 0, GS, GS));
+    // 2. großflächiges Farbspiel der Wiesen (trocken/frisch)
+    g.globalAlpha = 0.45;
+    g.drawImage(lowNoiseCanvas(256, (x, y) => {
+      const b = fbm(x * 0.008, y * 0.008, 4), m = fbm(x * 0.03 + 5, y * 0.03, 3);
+      return b > 0.5 ? [196, 186, 118, Math.min(255, (b - 0.5) * 900)] : [82, 112, 52, Math.min(255, (0.5 - b) * 700 + m * 40)];
+    }), 0, 0, GS, GS);
+    g.globalAlpha = 1;
+
+    const env = V.env || {}, R = rng(123);
+    // 3. Flur: Wiesen, Weiden, Weinberge, Gärten, Äcker in Streifen
+    (env.fields || []).forEach((f, fi) => {
+      const poly = f.polygon, kind = f.kind || 'acker';
+      g.save(); tracePath(g, poly, true); g.clip();
+      if (kind === 'acker') {
+        const [ux, uy] = mainAxis(poly), vx = -uy, vy = ux, w0 = f.strip_width || 14;
+        const vs = poly.map(p => p[0] * vx + p[1] * vy), us = poly.map(p => p[0] * ux + p[1] * uy);
+        const v0 = Math.min(...vs), v1 = Math.max(...vs), u0 = Math.min(...us) - 20, u1 = Math.max(...us) + 20;
+        let v = v0, k = 0;
+        while (v < v1) {
+          const w = w0 * (0.75 + 0.5 * hash2(fi * 31 + k, 7));
+          const quad = [[u0, v], [u1, v], [u1, v + w], [u0, v + w]].map(([a, b]) => [a * ux + b * vx, a * uy + b * vy]);
+          g.fillStyle = CROPS[Math.floor(hash2(fi * 17 + k, 3) * CROPS.length)];
+          tracePath(g, quad, true); g.fill();
+          // Furchen in Streifenrichtung
+          g.strokeStyle = 'rgba(60,45,20,0.10)'; g.lineWidth = Math.max(1, 0.25 * pxm);
+          for (let t = v + 0.8; t < v + w - 0.4; t += 0.9) {
+            tracePath(g, [[u0 * ux + t * vx, u0 * uy + t * vy], [u1 * ux + t * vx, u1 * uy + t * vy]], false); g.stroke();
+          }
+          // Ackerrain zwischen den Streifen
+          g.strokeStyle = 'rgba(110,130,70,0.75)'; g.lineWidth = 0.7 * pxm;
+          tracePath(g, [quad[0], quad[1]], false); g.stroke();
+          v += w; k++;
+        }
+      } else {
+        const tone = { wiese: '#8ea366', weide: '#9aab6c', weinberg: '#8a8a52', garten: '#7f9c55' }[kind] || '#8ea366';
+        soft(g, 3 * pxm, () => { g.fillStyle = tone; g.globalAlpha = 0.45; tracePath(g, poly, true); g.fill(); g.globalAlpha = 1; });
+        if (kind === 'weinberg' || kind === 'garten') {
+          const [ux, uy] = mainAxis(poly), vx = -uy, vy = ux, gap = kind === 'weinberg' ? 1.8 : 3.5;
+          const vs = poly.map(p => p[0] * vx + p[1] * vy), us = poly.map(p => p[0] * ux + p[1] * uy);
+          g.strokeStyle = kind === 'weinberg' ? 'rgba(50,70,30,0.6)' : 'rgba(90,70,40,0.35)'; g.lineWidth = 0.7 * pxm;
+          for (let t = Math.min(...vs); t < Math.max(...vs); t += gap) {
+            const a = Math.min(...us), b = Math.max(...us);
+            tracePath(g, [[a * ux + t * vx, a * uy + t * vy], [b * ux + t * vx, b * uy + t * vy]], false); g.stroke();
+          }
+        }
+      }
+      g.restore();
+      // Feldrain außen (nur Äcker; Wiesen und Weiden gehen weich über)
+      if (kind === 'acker') { g.strokeStyle = 'rgba(105,125,68,0.8)'; g.lineWidth = 1.6 * pxm; tracePath(g, poly, true); g.stroke(); }
+    });
+    // 4. Waldboden, weich auslaufend
+    (env.forest || []).forEach(fo => soft(g, 4 * pxm, () => {
+      g.fillStyle = 'rgba(78,96,52,0.85)'; tracePath(g, chaikin(fo.polygon, true, 2), true); g.fill();
+    }));
+    // 5. Siedlungsflächen: Hofstellen, festgetretener Boden
+    (env.settlements || []).forEach(st => soft(g, 3 * pxm, () => {
+      g.fillStyle = 'rgba(150,136,104,0.75)'; tracePath(g, chaikin(st.polygon, true, 2), true); g.fill();
+    }));
+    // 6. Gräben
+    (V.ditches || []).forEach(dt => soft(g, 1.5 * pxm, () => {
+      g.strokeStyle = dt.water ? 'rgba(96,104,76,0.9)' : 'rgba(104,122,70,0.9)'; g.lineWidth = dt.width * pxm;
+      g.lineCap = g.lineJoin = 'round'; tracePath(g, chaikin(dt.path, dt.closed, 2), dt.closed); g.stroke();
+    }));
+    // 7. Burghof: Kies und Erde
+    if (V.plateau) soft(g, 0.8 * pxm, () => {
+      g.fillStyle = '#ad9f84'; tracePath(g, V.plateau, true); g.fill();
+    });
+    // 8. Flussufer (nass, kiesig) unter dem Wasserband
+    (env.rivers || []).forEach(rv => {
+      const pts = chaikin(rv.path, false, 3), w = rv.width || 10;
+      g.lineCap = g.lineJoin = 'round';
+      soft(g, 2 * pxm, () => { g.strokeStyle = 'rgba(122,118,92,0.9)'; g.lineWidth = (w + 3) * pxm; tracePath(g, pts, false); g.stroke(); });
+      g.strokeStyle = 'rgba(70,74,60,0.9)'; g.lineWidth = w * pxm; tracePath(g, pts, false); g.stroke();
+    });
+    // 9. Fels an Steilhängen (Maske aus dem Höhenmodell)
+    soft(g, 1.5 * pxm, () => g.drawImage(slopeMask, 0, 0, GS, GS));
+    // 10. Wege: geglättet, mit Bankett, Fahrspuren und Grasnarbe in der Mitte
+    (env.roads || []).forEach(rd => {
+      const pts = chaikin(rd.path, false, 4), w = rd.width || 4;
+      g.lineCap = g.lineJoin = 'round';
+      // Bankett: niedergetretenes, staubiges Gras
+      soft(g, 2 * pxm, () => { g.strokeStyle = 'rgba(168,158,118,0.55)'; g.lineWidth = (w + 3) * pxm; tracePath(g, pts, false); g.stroke(); });
+      // Fahrbahn: Erde mit Kies, Breite nach castle.json
+      soft(g, 0.6 * pxm, () => { g.strokeStyle = '#b29f80'; g.lineWidth = w * pxm; tracePath(g, pts, false); g.stroke(); });
+      // Fahrspuren nur angedeutet
+      for (const off of [-0.25, 0.25]) soft(g, 0.4 * pxm, () => {
+        g.strokeStyle = 'rgba(110,92,68,0.16)'; g.lineWidth = Math.max(1, 0.6 * pxm); tracePath(g, offsetPath(pts, off * w), false); g.stroke();
+      });
+    });
+    // 11. Körnung: feines Rauschen über alles
+    const grain = document.createElement('canvas'); grain.width = grain.height = 256;
+    const gg = grain.getContext('2d'), gi = gg.createImageData(256, 256);
+    for (let k = 0; k < gi.data.length; k += 4) {
+      const p = k / 4, v = 128 + (R() - 0.5) * 70 + (fbm((p % 256) / 6, (p >> 8) / 6, 2) - 0.5) * 90;
+      gi.data[k] = gi.data[k + 1] = gi.data[k + 2] = v; gi.data[k + 3] = 255;
+    }
+    gg.putImageData(gi, 0, 0);
+    g.globalCompositeOperation = 'soft-light'; g.globalAlpha = 0.3;
+    g.fillStyle = g.createPattern(grain, 'repeat'); g.fillRect(0, 0, GS, GS);
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    return c;
+  }
+  function offsetPath(pts, o) {
+    return pts.map((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      const tx = b[0] - a[0], ty = b[1] - a[1], L = Math.hypot(tx, ty) || 1;
+      return [p[0] - ty / L * o, p[1] + tx / L * o];
+    });
+  }
+  let groundCanvas = null, edgeStrips = null;
+  // Farbe am Rand der Bodenkarte (für den Übergang in die ferne Landschaft)
+  function edgeColor(x, y, out) {
+    if (!edgeStrips) {
+      const g = groundCanvas.getContext('2d');
+      edgeStrips = { s: g.getImageData(0, GS - 2, GS, 1).data, n: g.getImageData(0, 1, GS, 1).data,
+        w: g.getImageData(1, 0, 1, GS).data, o: g.getImageData(GS - 2, 0, 1, GS).data };
+    }
+    const [u, v] = PX(x, y), cl = t => Math.max(0, Math.min(GS - 1, Math.round(t)));
+    let d, k;
+    if (y <= -e + 1e-6) { d = edgeStrips.s; k = cl(u); } else if (y >= e - 1e-6) { d = edgeStrips.n; k = cl(u); }
+    else if (x <= -e + 1e-6) { d = edgeStrips.w; k = cl(v); } else { d = edgeStrips.o; k = cl(v); }
+    // ±8 px mitteln
+    let r = 0, gg = 0, b = 0, c = 0;
+    for (let q = Math.max(0, k - 8); q <= Math.min(GS - 1, k + 8); q++) { r += d[q * 4]; gg += d[q * 4 + 1]; b += d[q * 4 + 2]; c++; }
+    return out.setRGB(r / c / 255, gg / c / 255, b / c / 255).convertSRGBToLinear();
   }
 
   const terrainN = T.res * Math.max(1, Math.min(small ? 2 : 4, Math.round(dx / 2.2), Math.floor((small ? 260 : 520) / T.res)));
@@ -385,16 +540,24 @@ __THREE_SCRIPT__
     const hh = new Float32Array(M * M);
     for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) hh[j * M + i] = heightAt(-e + i * step, -e + j * step);
     const H = (i, j) => hh[Math.max(0, Math.min(M - 1, j)) * M + Math.max(0, Math.min(M - 1, i))];
-    const c = new THREE.Color();
+    // Felsmaske (Nord oben) aus der Neigung
+    const mask = document.createElement('canvas'); mask.width = mask.height = M;
+    const mg = mask.getContext('2d'), mi = mg.createImageData(M, M), rock = new THREE.Color(ROCK);
     for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) {
       const x = -e + i * step, y = -e + j * step, z = H(i, j), k = j * M + i;
       const gx = (H(i + 1, j) - H(i - 1, j)) / (2 * step), gy = (H(i, j + 1) - H(i, j - 1)) / (2 * step);
       const s2 = Math.max(step, 3);
       const lap = (heightAt(x + s2, y) + heightAt(x - s2, y) + heightAt(x, y + s2) + heightAt(x, y - s2) - 4 * z) / (s2 * s2);
-      terrainColor(x, y, gx, gy, -lap * 0.9, c);
-      const g = toGL(x, y, z);
-      pos.set(g, k * 3); colr.set([c.r, c.g, c.b], k * 3); uv.set([x / 9, y / 9], k * 2);
+      const mid = fbm(x * 0.06 + 11, y * 0.06, 3);
+      const a = smooth(0.6, 1.1, Math.hypot(gx, gy) + (mid - 0.5) * 0.45) * 0.92, q = ((M - 1 - j) * M + i) * 4;
+      const sh = 0.8 + 0.4 * fbm(x * 0.2, y * 0.2, 2);
+      mi.data[q] = rock.r * 255 * sh; mi.data[q + 1] = rock.g * 255 * sh; mi.data[q + 2] = rock.b * 255 * sh; mi.data[q + 3] = a * 255;
+      // Eckenverschattung: Mulden dunkler, Kuppen etwas heller
+      const ao = Math.max(0.8, Math.min(1.08, 1 - lap * 0.9));
+      pos.set(toGL(x, y, z), k * 3); colr.set([ao, ao, ao], k * 3); uv.set([(x + e) / ext, (y + e) / ext], k * 2);
     }
+    mg.putImageData(mi, 0, 0);
+    groundCanvas = paintGround(mask);
     const idx = [];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const a = j * M + i, b = a + 1, d = a + M, cc = d + 1;
@@ -440,7 +603,7 @@ __THREE_SCRIPT__
         const z = skirtZ(eh[i], bh[i], hills, d, t);
         const w = fbm(x * 0.004 + 3, y * 0.004, 3);
         far.copy(base).lerp(wood, smooth(0.42, 0.58, w)).multiplyScalar(0.85 + 0.2 * fbm(x * 0.02, y * 0.02, 2));
-        terrainColor(ex, ey, 0, 0, 0, c).lerp(far, smooth(0, ext * 0.08, d));
+        edgeColor(ex, ey, c).multiplyScalar(0.8).lerp(far, smooth(0, ext * 0.08, d));
         pos.push(...toGL(x, y, z)); colr.push(c.r, c.g, c.b); uv.push(x / 9, y / 9);
       });
     }
@@ -645,7 +808,7 @@ __THREE_SCRIPT__
     const L = LIGHTS[name] || LIGHTS.zeichnung;
     const A = L.az * Math.PI / 180, E = L.el * Math.PI / 180;
     const d = new THREE.Vector3(Math.sin(A) * Math.cos(E), Math.sin(E), -Math.cos(A) * Math.cos(E));
-    const half = Math.min(e, Math.max(radius * 3, 320));
+    const half = e * 1.05; // ganzer Ausschnitt, damit auch Hügel und Wald Schatten werfen
     sun.color.set(L.sun); sun.intensity = L.int;
     sun.position.copy(center).addScaledVector(d, ext * 1.5); sun.target.position.copy(center);
     const sc = sun.shadow.camera;
@@ -670,14 +833,16 @@ __THREE_SCRIPT__
   const current = { light: 'zeichnung' };
   function build() {
     makeTextures();
-    TEX.ground.repeat.set(1, 1);
-    const terrain = new THREE.Mesh(buildTerrain(), new THREE.MeshStandardMaterial({
-      vertexColors: true, map: TEX.ground, roughness: 0.97, envMapIntensity: 0.3 }));
-    terrain.receiveShadow = true;
+    const tGeo = buildTerrain();
+    const groundTex = new THREE.CanvasTexture(groundCanvas);
+    groundTex.encoding = THREE.sRGBEncoding; groundTex.anisotropy = aniso;
+    const terrain = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0.8, 0.8, 0.8), vertexColors: true, map: groundTex, roughness: 0.97, envMapIntensity: 0.3 }));
+    terrain.receiveShadow = true; terrain.castShadow = true;  // Hänge verschatten einander
     scene.add(terrain);
     const skirt = new THREE.Mesh(buildSkirt(terrainN), new THREE.MeshStandardMaterial({
-      vertexColors: true, map: TEX.ground, roughness: 1, envMapIntensity: 0.3 }));
-    skirt.receiveShadow = true;
+      vertexColors: true, roughness: 1, envMapIntensity: 0.3 }));
+    skirt.receiveShadow = true; skirt.castShadow = true;
     scene.add(skirt, envGroup, burgGroup);
 
     for (const o of S.objects) {
@@ -928,6 +1093,7 @@ __THREE_SCRIPT__
       requestAnimationFrame(loop);
     })();
     window.__burgenmaler = { setView, setCamera, setLight, setBefund, setEnv, st, ready: true,
+      groundMap: () => groundCanvas.toDataURL('image/jpeg', 0.9),
       render: () => renderer.render(scene, camera),
       snapshot: () => { renderer.render(scene, camera); return canvas.toDataURL('image/png'); } };
   }, 30));
