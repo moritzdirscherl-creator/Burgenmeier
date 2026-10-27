@@ -12,10 +12,10 @@ Jede Angabe im Dossier muss nachprüfbar sein.
 `$SKILL` ist das Verzeichnis dieser Datei. Arbeite in einem eigenen Ordner, z. B. `/tmp/burg/`.
 Auf claude.ai legst du die Ergebnisse unter `/mnt/user-data/outputs/` ab.
 
-## Schwerpunkt: Lage, Bilder, Karten – wenig Text
+## Schwerpunkt: Lage, Bilder, Karten – Literatur mit Maß
 
 Für die Rekonstruktion zählen vor allem **Geokoordinaten, Pläne, historische Ansichten und Karten**.
-Darauf verwendest du die Zeit. Beim Text sparst du:
+Darauf verwendest du die meiste Zeit. Fachliteratur und Texte nutzt du auch, aber begrenzt:
 
 - **Wichtig, gründlich suchen:**
   - **Koordinaten** der Burg selbst (nicht des Ortes), Lagetyp, Relief.
@@ -23,14 +23,19 @@ Darauf verwendest du die Zeit. Beim Text sparst du:
   - **Historische Ansichten:** Veduten, Stiche, Gemälde, alte Fotos vor Abbruch oder Restaurierung.
   - **Karten:** Urkataster/Uraufnahme, ältere Landtafeln, historische Kartenlayer und LiDAR-Schummerung
     im Geoportal des Landes (mit Link).
-- **Knapp halten:**
-  - **Baugeschichte:** nur eine Zeitleiste mit 3–6 Stichpunkten (Ersterwähnung, Hauptbauphasen,
-    Zerstörung), aus Wikipedia/EBIDAT. Keine langen Texte lesen oder zusammenfassen.
-  - **Literatur:** nur nennen, wo ein Plan oder eine Ansicht abgedruckt ist. Nicht jeder Literaturangabe
-    nachgehen.
-  - **Schriftquellen** (Urkunden, Urbare, Regesten) nur, wenn sie ein Bauteil direkt beschreiben und
-    leicht zu finden sind; sonst weglassen. Keine Archiv- oder Regestenrecherche.
-  - **Keine** Fotos des heutigen Zustands, keine Sekundärtexte ohne Plan oder Bild.
+- **Mit Maß recherchieren** (erlaubt, aber begrenzt):
+  - **Baugeschichte:** eine Zeitleiste mit den wichtigen Daten (Ersterwähnung, Bauphasen, Zerstörung,
+    Umbauten) aus Wikipedia/EBIDAT und, wenn nötig, einer Fachquelle.
+  - **Fachliteratur und digitalisierte Bücher** (Inventarbände, Piper, Ebhardt, Aufsätze): höchstens
+    **3–4 Werke** öffnen, und darin nur die Seiten zur Burg (über Register, Inhaltsverzeichnis oder
+    Volltextsuche des Digitalisats). Nie ganze Bände oder lange PDFs durchblättern.
+  - **Schriftquellen** (Urkunden, Urbare, Chroniken): nur Stellen, die Bauteile, Material oder
+    Zerstörungen nennen, und nur aus dem, was ohnehin aufgeschlagen ist. Keine eigene Archiv- oder
+    Regestenrecherche.
+  - Keine Fotos des heutigen Zustands.
+- **Gesamtumfang:** etwa **15–20 Websuchen und 10–15 Seitenabrufe** insgesamt. Ist das erreicht oder
+  liefern neue Suchen nur Wiederholungen, hör auf und übergib. Was du nicht mehr prüfen konntest,
+  kommt als Hinweis mit Fundort ins Dossier.
 - **Nicht ausufern:** Such gezielt nach Bildern und Karten („<Burg> Grundriss“, „<Burg> Merian“,
   „<Burg> Ansicht 17. Jh.“, „<Burg> Urkataster“, „<Gemeinde> Geoportal historische Karte“) und schick
   unabhängige Suchen gleichzeitig. Hör auf, wenn neue Suchen nur noch Wiederholungen liefern.
@@ -70,9 +75,10 @@ python $SKILL/scripts/dossier.py setze quellen.json lat=… lon=… lage=spur re
 `lage` ist einer von: `spur`, `hilltop`, `crag`, `slope`, `lowland`, `island`. `richtung` gibt die
 Kompassrichtung der Spornspitze bzw. des Gefälles an.
 
-### 2. Kurzüberblick (knapp)
-Aus Wikipedia oder EBIDAT nur: eine **Zeitleiste** mit 3–6 Einträgen (`dossier.py ereignis`) und die
-Angaben, **wo Pläne und Ansichten abgedruckt** sind. Mehr Text brauchst du nicht.
+### 2. Überblick und Baugeschichte
+Aus Wikipedia, EBIDAT und Denkmalliste: eine **Zeitleiste** (`dossier.py ereignis`) und die
+**Literaturangaben**, vor allem dazu, wo Pläne und Ansichten abgedruckt sind. Von dort gehst du in
+höchstens 3–4 Werke (siehe oben), nur zu den Seiten über die Burg.
 
 ### 3. Pläne suchen
 Reihenfolge: Bauaufnahmen und Grabungspläne, Inventarbände (Kunstdenkmäler), Piper, Ebhardt und andere
@@ -91,7 +97,7 @@ Votivbilder, Gemälde, Fotos vor Abbrüchen und Restaurierungen. Suchmuster in `
 Halte für jede Ansicht fest: Datierung, Blickrichtung, Original oder Kopie, und was sie zeigt
 (Dachformen, Turmabschlüsse, Höhenverhältnisse, Umgebung).
 
-### 5. Schriftquellen (nur wenn leicht greifbar)
+### 5. Schriftquellen (begrenzt, siehe oben)
 Urkundenbücher, Regesten, Urbare, Inventare, Baurechnungen, Burgfriedensverträge, Teilungsverträge,
 Chroniken. Wichtig sind Stellen, die Bauteile, Räume, Material oder Zerstörungen nennen. Zitiere kurz
 und wörtlich mit Fundstelle.
