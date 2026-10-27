@@ -147,6 +147,13 @@ def main(argv=None):
     ap.add_argument("name_oder_qid")
     ap.add_argument("--dossier", help="quellen.json, in das Fakten und Quelle übernommen werden")
     a = ap.parse_args(argv)
+    try:
+        run(a)
+    except net.Offline as ex:
+        sys.exit(f"Wikidata nicht erreichbar: {ex}")
+
+
+def run(a):
     q = a.name_oder_qid
     if q[:1] == "Q" and q[1:].isdigit():
         qid = q

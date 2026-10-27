@@ -12,6 +12,26 @@ Jede Angabe im Dossier muss nachprüfbar sein.
 `$SKILL` ist das Verzeichnis dieser Datei. Arbeite in einem eigenen Ordner, z. B. `/tmp/burg/`.
 Auf claude.ai legst du die Ergebnisse unter `/mnt/user-data/outputs/` ab.
 
+## Tempo: erst schnell, dann nur auf Wunsch gründlich
+
+Standard ist die **Schnellrecherche**. Sie soll in wenigen Minuten fertig sein:
+- **Budget:** höchstens ~8 Websuchen und ~6 Seitenabrufe. Schick unabhängige Suchen **gleichzeitig in
+  einer Runde** (Wikipedia, EBIDAT, „Grundriss“, „Merian/Ansicht“), nicht nacheinander.
+- **Ziel und Abbruch:** Koordinaten, Lagetyp, kurze Zeitleiste, **ein** Grundriss (oder Hinweis, wo er
+  steht), **eine bis zwei** historische Ansichten, die wichtigste Literatur. Sobald das da ist: aufhören
+  und übergeben, auch wenn mehr zu finden wäre.
+- **Weglassen** in der Schnellrecherche: Schriftquellen im Wortlaut (Schritt 5), historische Karten
+  (Schritt 6), Unterkategorien auf Commons, Fotos des heutigen Zustands, das Lesen ganzer Inventarbände.
+  Nenne solche Quellen nur als Hinweis im Dossier.
+- **Netz der Sandbox einmal prüfen:** Bricht `wikidata.py` mit „nicht erreichbar“ ab, ruf in dieser
+  Recherche **kein** Skript mit Netzzugriff mehr auf (auch nicht `commons.py`), sondern nimm die
+  Websuche. Keine Wiederholungsversuche.
+- **Bilder ansehen:** nur Pläne und Ansichten, nicht jeden Treffer; Fotos werden gar nicht geladen.
+
+Die **gründliche Recherche** (alle Schritte vollständig, Schriftquellen, Karten, mehr Treffer) machst du
+nur, wenn der Nutzer sie ausdrücklich will („gründlich“, „alles“, „vollständig“) oder wenn die
+Schnellrecherche keinen Plan und keine Ansicht gefunden hat. Frag dann kurz, bevor du loslegst.
+
 **Zwei Wege an Information:**
 - **Websuche und Webabruf:** deine eigenen Werkzeuge. Sie gehen immer und sind der Hauptweg.
 - **Skripte in der Sandbox:** `wikidata.py` und `commons.py` brauchen Netzzugriff der Codeausführung
@@ -57,10 +77,10 @@ Ziel ist **nicht** der Text selbst, sondern
 Reihenfolge: Bauaufnahmen und Grabungspläne, Inventarbände (Kunstdenkmäler), Piper, Ebhardt und andere
 Burgenwerke, Grundrisse auf Commons, Wikipedia und Infotafeln, Luftbild und LiDAR-Schummerung.
 ```bash
-python $SKILL/scripts/commons.py category "<Commons-Kategorie>" --depth 1 --download quellen/ --dossier quellen.json
+python $SKILL/scripts/commons.py category "<Commons-Kategorie>" --download quellen/ --dossier quellen.json
 python $SKILL/scripts/commons.py search "<Burgname> Grundriss" --download quellen/ --dossier quellen.json
 ```
-**Sieh dir jedes heruntergeladene Bild an.** Prüfe, ob es wirklich die gesuchte Burg zeigt und welchen
+**Sieh dir die heruntergeladenen Pläne und Ansichten an** (verkleinert genügt). Prüfe, ob es wirklich die gesuchte Burg zeigt und welchen
 Zustand. Korrigiere den Typ, setze `viewed` und trage Befunde ein. Ein Plan ohne Maßstab ist trotzdem
 wertvoll: Notiere, woran man den Maßstab festmachen kann (Mauerstärke, Turmdurchmesser aus dem Text).
 
@@ -70,7 +90,7 @@ Votivbilder, Gemälde, Fotos vor Abbrüchen und Restaurierungen. Suchmuster in `
 Halte für jede Ansicht fest: Datierung, Blickrichtung, Original oder Kopie, und was sie zeigt
 (Dachformen, Turmabschlüsse, Höhenverhältnisse, Umgebung).
 
-### 5. Schriftquellen
+### 5. Schriftquellen (nur gründliche Recherche)
 Urkundenbücher, Regesten, Urbare, Inventare, Baurechnungen, Burgfriedensverträge, Teilungsverträge,
 Chroniken. Wichtig sind Stellen, die Bauteile, Räume, Material oder Zerstörungen nennen. Zitiere kurz
 und wörtlich mit Fundstelle.
@@ -83,7 +103,7 @@ python $SKILL/scripts/dossier.py befund quellen.json Q7 --bauteil Kapelle --auss
   --zitat "…die capelle in der vorburg…"
 ```
 
-### 6. Karten und Gelände (für die Umgebung)
+### 6. Karten und Gelände (nur gründliche Recherche; sonst Hinweis auf das Geoportal)
 Suche die erste genaue Landesaufnahme (Urkataster/Uraufnahme, um 1800–1880), ältere Landtafeln und
 Forstkarten. In den Geoportalen der Länder gibt es oft historische Kartenlayer, Bodendenkmäler und eine
 LiDAR-Schummerung. Notiere Flussverlauf vor der Begradigung, Wege, Mühlen, Weinberge, Dorfgrenzen,

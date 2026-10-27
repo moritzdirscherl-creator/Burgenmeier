@@ -3,15 +3,17 @@
 
   python commons.py search "Burg Eltz Grundriss"            Volltextsuche nach Dateien
   python commons.py category "Burg Eltz" [--depth 1]         Dateien einer Kategorie (+ Unterkategorien)
-  python commons.py ... --download quellen/ --dossier quellen.json [--limit 20] [--width 2000]
+  python commons.py ... --download quellen/ --dossier quellen.json [--limit 10] [--width 1600]
 
 Jede Datei wird mit Urheber, Datierung, Lizenz und Beschreibung erfasst. Der Typ (plan / illustration /
 map / photo) wird aus Titel und Beschreibung geschätzt; prüfe ihn beim Ansehen der Bilder.
-Fotos des heutigen Zustands kommen nur mit `--fotos` ins Dossier.
+Fotos des heutigen Zustands werden nur mit `--fotos` heruntergeladen und ins Dossier übernommen.
+Downloads laufen parallel.
 """
 
 import argparse
 import html
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
@@ -85,13 +87,13 @@ IIPROPS = {"prop": "imageinfo", "iiprop": "url|extmetadata|mime|size",
            "iiextmetadatalanguage": "de", "format": "json"}
 
 
-def search(query, limit=20, width=2000):
+def search(query, limit=10, width=1600):
     res = net.get(API, {"action": "query", "generator": "search", "gsrsearch": query, "gsrnamespace": 6,
                         "gsrlimit": limit, "iiurlwidth": width, **IIPROPS})
     return _info(res.get("query", {}).get("pages", {}), width)
 
 
-def category(name, limit=50, width=2000, depth=0):
+def category(name, limit=10, width=1600, depth=0):
     name = name.replace("Category:", "").replace("Kategorie:", "")
     res = net.get(API, {"action": "query", "generator": "categorymembers", "gcmtitle": "Category:" + name,
                         "gcmtype": "file", "gcmlimit": limit, "iiurlwidth": width, **IIPROPS})
@@ -106,18 +108,28 @@ def category(name, limit=50, width=2000, depth=0):
     return files[:limit]
 
 
-def download(files, folder):
+def download(files, folder, fotos=False):
     os.makedirs(folder, exist_ok=True)
-    for f in files:
-        if not f.get("download"):  # PDF/DjVu liefern über thumburl eine gerenderte Seite als Bild
-            continue
+
+    def one(f):
         ext = os.path.splitext(f["download"].split("?")[0])[1] or ".jpg"
         base = re.sub(r"[^\w\-]+", "_", os.path.splitext(f["commons_titel"])[0])[:80]
         path = os.path.join(folder, base + ext)
-        if not os.path.exists(path):
-            with open(path, "wb") as fh:
-                fh.write(net.get(f["download"], raw=True, timeout=90))
-        f["file"] = path
+        try:
+            if not os.path.exists(path):
+                data = net.get(f["download"], raw=True, timeout=30)
+                with open(path, "wb") as fh:
+                    fh.write(data)
+            f["file"] = path
+        except net.Offline:
+            raise
+        except Exception as ex:  # einzelne Datei überspringen, nicht die ganze Suche
+            f["fehler"] = str(ex)[:120]
+
+    # PDF/DjVu liefern über thumburl eine gerenderte Seite als Bild
+    todo = [f for f in files if f.get("download") and (fotos or f["type"] != "photo")]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(one, todo))
     return files
 
 
@@ -145,17 +157,20 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("modus", choices=["search", "category"])
     ap.add_argument("begriff")
-    ap.add_argument("--limit", type=int, default=20)
-    ap.add_argument("--width", type=int, default=2000, help="Breite der heruntergeladenen Fassung in Pixeln")
+    ap.add_argument("--limit", type=int, default=10)
+    ap.add_argument("--width", type=int, default=1600, help="Breite der heruntergeladenen Fassung in Pixeln")
     ap.add_argument("--depth", type=int, default=0, help="Unterkategorien mit durchsuchen (category)")
     ap.add_argument("--download", help="Ordner für die Bilddateien")
     ap.add_argument("--dossier", help="quellen.json, in das die Treffer als Quellen übernommen werden")
     ap.add_argument("--fotos", action="store_true", help="auch heutige Fotos ins Dossier übernehmen")
     a = ap.parse_args(argv)
-    files = search(a.begriff, a.limit, a.width) if a.modus == "search" else \
-        category(a.begriff, a.limit, a.width, a.depth)
-    if a.download:
-        download(files, a.download)
+    try:
+        files = search(a.begriff, a.limit, a.width) if a.modus == "search" else \
+            category(a.begriff, a.limit, a.width, a.depth)
+        if a.download:
+            download(files, a.download, a.fotos)
+    except net.Offline as ex:
+        sys.exit(f"Commons nicht erreichbar: {ex}")
     for f in files:
         print(f"[{f['type']:12}] {f['year'] or '?':>5}  {f['title'][:70]}  ({f['license'] or 'Lizenz?'})"
               + (f"  → {f['file']}" if f.get("file") else ""))

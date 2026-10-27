@@ -98,7 +98,7 @@ def test_commons_classification_and_dossier(fake_net, tmp_path):
     assert by["Falkenstein Grundriss.png"]["type"] == "plan"
     assert by["Falkenstein 2019.jpg"]["type"] == "photo"
     commons.download(files, str(tmp_path / "bilder"))
-    assert all(os.path.exists(f["file"]) for f in files)
+    assert all(os.path.exists(f["file"]) for f in files if f["type"] != "photo")
     p = str(tmp_path / "q.json")
     assert commons.to_dossier(files, p) == 2  # Foto ohne --fotos nicht übernommen
     d = dossier.load(p)
@@ -148,3 +148,32 @@ def test_skeleton_feeds_burgenmeier(tmp_path):
     p.write_text(json.dumps(c, ensure_ascii=False))
     errors, _ = validate.validate(castle_lib.load_castle(str(p)))
     assert errors == []
+
+
+def test_offline_fails_fast(monkeypatch, tmp_path):
+    import time
+    import urllib.request
+
+    import net
+    monkeypatch.setattr(net, "OFFLINE_MARK", str(tmp_path / "offline"))
+    calls = []
+
+    def boom(*a, **k):
+        calls.append(1)
+        raise OSError("Network is unreachable")
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    with pytest.raises(net.Offline):
+        net.get("https://www.wikidata.org/w/api.php")
+    n = len(calls)
+    with pytest.raises(net.Offline):  # zweiter Aufruf: sofort, ohne Netzversuch
+        net.get("https://commons.wikimedia.org/w/api.php")
+    assert len(calls) == n
+
+
+def test_commons_skips_photo_downloads(fake_net, tmp_path):
+    files = commons.search("Falkenstein")
+    commons.download(files, str(tmp_path / "q"))
+    by_type = {f["type"]: f for f in files}
+    assert by_type["photo"].get("file") is None
+    assert os.path.exists(by_type["illustration"]["file"])
