@@ -12,25 +12,30 @@ Jede Angabe im Dossier muss nachprüfbar sein.
 `$SKILL` ist das Verzeichnis dieser Datei. Arbeite in einem eigenen Ordner, z. B. `/tmp/burg/`.
 Auf claude.ai legst du die Ergebnisse unter `/mnt/user-data/outputs/` ab.
 
-## Tempo: erst schnell, dann nur auf Wunsch gründlich
+## Schwerpunkt: Lage, Bilder, Karten – wenig Text
 
-Standard ist die **Schnellrecherche**. Sie soll in wenigen Minuten fertig sein:
-- **Budget:** höchstens ~8 Websuchen und ~6 Seitenabrufe. Schick unabhängige Suchen **gleichzeitig in
-  einer Runde** (Wikipedia, EBIDAT, „Grundriss“, „Merian/Ansicht“), nicht nacheinander.
-- **Ziel und Abbruch:** Koordinaten, Lagetyp, kurze Zeitleiste, **ein** Grundriss (oder Hinweis, wo er
-  steht), **eine bis zwei** historische Ansichten, die wichtigste Literatur. Sobald das da ist: aufhören
-  und übergeben, auch wenn mehr zu finden wäre.
-- **Weglassen** in der Schnellrecherche: Schriftquellen im Wortlaut (Schritt 5), historische Karten
-  (Schritt 6), Unterkategorien auf Commons, Fotos des heutigen Zustands, das Lesen ganzer Inventarbände.
-  Nenne solche Quellen nur als Hinweis im Dossier.
-- **Netz der Sandbox einmal prüfen:** Bricht `wikidata.py` mit „nicht erreichbar“ ab, ruf in dieser
-  Recherche **kein** Skript mit Netzzugriff mehr auf (auch nicht `commons.py`), sondern nimm die
-  Websuche. Keine Wiederholungsversuche.
-- **Bilder ansehen:** nur Pläne und Ansichten, nicht jeden Treffer; Fotos werden gar nicht geladen.
+Für die Rekonstruktion zählen vor allem **Geokoordinaten, Pläne, historische Ansichten und Karten**.
+Darauf verwendest du die Zeit. Beim Text sparst du:
 
-Die **gründliche Recherche** (alle Schritte vollständig, Schriftquellen, Karten, mehr Treffer) machst du
-nur, wenn der Nutzer sie ausdrücklich will („gründlich“, „alles“, „vollständig“) oder wenn die
-Schnellrecherche keinen Plan und keine Ansicht gefunden hat. Frag dann kurz, bevor du loslegst.
+- **Wichtig, gründlich suchen:**
+  - **Koordinaten** der Burg selbst (nicht des Ortes), Lagetyp, Relief.
+  - **Pläne:** Grundrisse, Bauaufnahmen, Grabungspläne, Lagepläne – alle brauchbaren, die du findest.
+  - **Historische Ansichten:** Veduten, Stiche, Gemälde, alte Fotos vor Abbruch oder Restaurierung.
+  - **Karten:** Urkataster/Uraufnahme, ältere Landtafeln, historische Kartenlayer und LiDAR-Schummerung
+    im Geoportal des Landes (mit Link).
+- **Knapp halten:**
+  - **Baugeschichte:** nur eine Zeitleiste mit 3–6 Stichpunkten (Ersterwähnung, Hauptbauphasen,
+    Zerstörung), aus Wikipedia/EBIDAT. Keine langen Texte lesen oder zusammenfassen.
+  - **Literatur:** nur nennen, wo ein Plan oder eine Ansicht abgedruckt ist. Nicht jeder Literaturangabe
+    nachgehen.
+  - **Schriftquellen** (Urkunden, Urbare, Regesten) nur, wenn sie ein Bauteil direkt beschreiben und
+    leicht zu finden sind; sonst weglassen. Keine Archiv- oder Regestenrecherche.
+  - **Keine** Fotos des heutigen Zustands, keine Sekundärtexte ohne Plan oder Bild.
+- **Nicht ausufern:** Such gezielt nach Bildern und Karten („<Burg> Grundriss“, „<Burg> Merian“,
+  „<Burg> Ansicht 17. Jh.“, „<Burg> Urkataster“, „<Gemeinde> Geoportal historische Karte“) und schick
+  unabhängige Suchen gleichzeitig. Hör auf, wenn neue Suchen nur noch Wiederholungen liefern.
+- **Netz der Sandbox einmal prüfen:** Bricht `wikidata.py` mit „nicht erreichbar“ ab, ruf kein Skript mit
+  Netzzugriff mehr auf (auch nicht `commons.py`), sondern nimm die Websuche und nenne die Bildlinks.
 
 **Zwei Wege an Information:**
 - **Websuche und Webabruf:** deine eigenen Werkzeuge. Sie gehen immer und sind der Hauptweg.
@@ -65,13 +70,9 @@ python $SKILL/scripts/dossier.py setze quellen.json lat=… lon=… lage=spur re
 `lage` ist einer von: `spur`, `hilltop`, `crag`, `slope`, `lowland`, `island`. `richtung` gibt die
 Kompassrichtung der Spornspitze bzw. des Gefälles an.
 
-### 2. Überblick und Baugeschichte
-Starte mit Wikipedia, EBIDAT, der Denkmalliste und Ortschroniken; siehe `reference/quellenorte.md`.
-Ziel ist **nicht** der Text selbst, sondern
-- eine **Zeitleiste**: Ersterwähnung, Bauphasen, Besitzwechsel, Zerstörung, Umbauten, Restaurierung
-  (`dossier.py ereignis`),
-- und vor allem die **Literatur- und Quellenangaben** dort. Sie führen zu Plänen, Inventarbänden,
-  Urkunden und Ansichten.
+### 2. Kurzüberblick (knapp)
+Aus Wikipedia oder EBIDAT nur: eine **Zeitleiste** mit 3–6 Einträgen (`dossier.py ereignis`) und die
+Angaben, **wo Pläne und Ansichten abgedruckt** sind. Mehr Text brauchst du nicht.
 
 ### 3. Pläne suchen
 Reihenfolge: Bauaufnahmen und Grabungspläne, Inventarbände (Kunstdenkmäler), Piper, Ebhardt und andere
@@ -90,7 +91,7 @@ Votivbilder, Gemälde, Fotos vor Abbrüchen und Restaurierungen. Suchmuster in `
 Halte für jede Ansicht fest: Datierung, Blickrichtung, Original oder Kopie, und was sie zeigt
 (Dachformen, Turmabschlüsse, Höhenverhältnisse, Umgebung).
 
-### 5. Schriftquellen (nur gründliche Recherche)
+### 5. Schriftquellen (nur wenn leicht greifbar)
 Urkundenbücher, Regesten, Urbare, Inventare, Baurechnungen, Burgfriedensverträge, Teilungsverträge,
 Chroniken. Wichtig sind Stellen, die Bauteile, Räume, Material oder Zerstörungen nennen. Zitiere kurz
 und wörtlich mit Fundstelle.
@@ -103,7 +104,7 @@ python $SKILL/scripts/dossier.py befund quellen.json Q7 --bauteil Kapelle --auss
   --zitat "…die capelle in der vorburg…"
 ```
 
-### 6. Karten und Gelände (nur gründliche Recherche; sonst Hinweis auf das Geoportal)
+### 6. Karten und Gelände (wichtig)
 Suche die erste genaue Landesaufnahme (Urkataster/Uraufnahme, um 1800–1880), ältere Landtafeln und
 Forstkarten. In den Geoportalen der Länder gibt es oft historische Kartenlayer, Bodendenkmäler und eine
 LiDAR-Schummerung. Notiere Flussverlauf vor der Begradigung, Wege, Mühlen, Weinberge, Dorfgrenzen,

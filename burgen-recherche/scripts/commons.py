@@ -93,7 +93,7 @@ def search(query, limit=10, width=1600):
     return _info(res.get("query", {}).get("pages", {}), width)
 
 
-def category(name, limit=10, width=1600, depth=0):
+def category(name, limit=25, width=1600, depth=0):
     name = name.replace("Category:", "").replace("Kategorie:", "")
     res = net.get(API, {"action": "query", "generator": "categorymembers", "gcmtitle": "Category:" + name,
                         "gcmtype": "file", "gcmlimit": limit, "iiurlwidth": width, **IIPROPS})
